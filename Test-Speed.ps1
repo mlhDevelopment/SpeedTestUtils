@@ -12,25 +12,36 @@ param(
 
 # Generate results file
 if(!(Test-Path $Output)) {
-    "Time,`"Wifi Name`",`"VPN Profile`",Location,`"Ping (ms)`",`"Download (bps)`",`"Upload (bps)`"" | Out-File $Output
+    "Time,`"Wifi Name`",`"VPN Profile`",Location,`"Ping (ms)`",`"Download (Mbps)`",`"Upload (Mbps)`"" | Out-File $Output
 }
 
 # Get interfaces
 $wifiProfiles = Get-NetConnectionProfile | ? { $WifiNames -contains $_.InterfaceAlias } | Select-Object -ExpandProperty Name
-$vpnProfiles = Get-NetConnectionProfile | ? { $VpnNames -contains $_.InterfaceAlias } | Select-Object -ExpandProperty Name
+$vpnProfiles  = Get-NetConnectionProfile | ? { $VpnNames  -contains $_.InterfaceAlias } | Select-Object -ExpandProperty Name
 
 # Get speed
 $now = Get-Date
-$sResult = speedtest.exe -f json
-$jResult = ConvertFrom-Json $sResult
+$hasError = $true
+try {
+    $sResult = speedtest.exe -f json
+    $jResult = ConvertFrom-Json $sResult
+    $hasError = $null -ne $jResult.error
+}
+catch {
+    
+}
 
 # Check on success
-if($null -ne $jResult.error) {
-    Write-Error $jResult.error
+if($hasError) {
+    # Append error line to output
+    $csvLine = "{0:G},`"{1}`",`"{2}`",{3},{4},{5},{6}" -f $now, $wifiProfiles, $vpnProfiles, $Location, `
+        "", 0, 0
+
+    $csvLine | Out-File $Output -Append
 } else {
-    # Append to output
-    $csvLine = "{0:g},`"{1}`",`"{2}`",{3},{4},{5},{6}" -f $now, $wifiProfiles, $vpnProfiles, $Location, $jResult.ping.latency, $jResult.download.bandwidth, $jResult.upload.bandwidth
+    # Append results to output
+    $csvLine = "{0:G},`"{1}`",`"{2}`",{3},{4},{5},{6}" -f $now, $wifiProfiles, $vpnProfiles, $Location, `
+        $jResult.ping.latency, ($jResult.download.bandwidth / 1000000.0 * 8.0), ($jResult.upload.bandwidth / 1000000.0 * 8.0)
 
     $csvLine | Out-File $Output -Append
 }
-

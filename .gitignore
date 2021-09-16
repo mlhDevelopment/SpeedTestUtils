@@ -1,2 +1,4 @@
 # Scripts produce CSV and do not need to be added to the repo
 *.csv
+*.xls
+*.xlsx
